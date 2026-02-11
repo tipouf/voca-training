@@ -1,0 +1,30 @@
+How are you?|Comment allez-vous ?
+I am learning English.|J'apprends l'anglais.
+What is your name?|Comment vous appelez-vous ?
+My name is Jenny.|Je m'appelle Jenny.
+Nice to meet you.|Enchanté de vous rencontrer.
+Where are you from?|D'où venez-vous ?
+I am from Vietnam.|Je viens du Vietnam.
+Do you speak English?|Parlez-vous anglais ?
+I speak a little French.|Je parle un peu français.
+Can you help me?|Pouvez-vous m'aider ?
+I don't understand.|Je ne comprends pas.
+Please speak slowly.|Parlez lentement s'il vous plaît.
+What time is it?|Quelle heure est-il ?
+I would like a coffee.|Je voudrais un café.
+How much does it cost?|Combien ça coûte ?
+Where is the bathroom?|Où sont les toilettes ?
+I am hungry.|J'ai faim.
+I am thirsty.|J'ai soif.
+The weather is nice today.|Il fait beau aujourd'hui.
+I love learning languages.|J'adore apprendre les langues.
+This is very interesting.|C'est très intéressant.
+I need to practice more.|J'ai besoin de pratiquer davantage.
+Can you repeat that?|Pouvez-vous répéter ?
+I am tired.|Je suis fatigué.
+See you tomorrow.|À demain.
+Have a good day!|Bonne journée !
+Thank you very much.|Merci beaucoup.
+You're welcome.|De rien.
+I'm sorry, I'm late.|Désolé, je suis en retard.
+No problem.|Pas de problème.

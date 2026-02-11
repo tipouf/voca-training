@@ -1,0 +1,52 @@
+hello|bonjour
+goodbye|au revoir
+thank you|merci
+please|s'il vous plaît
+yes|oui
+no|non
+good morning|bonjour
+good evening|bonsoir
+good night|bonne nuit
+how are you|comment allez-vous
+I am fine|je vais bien
+excuse me|excusez-moi
+sorry|désolé
+water|eau
+food|nourriture
+house|maison
+car|voiture
+book|livre
+pen|stylo
+table|table
+chair|chaise
+door|porte
+window|fenêtre
+phone|téléphone
+computer|ordinateur
+friend|ami
+family|famille
+mother|mère
+father|père
+brother|frère
+sister|sœur
+child|enfant
+man|homme
+woman|femme
+day|jour
+night|nuit
+morning|matin
+evening|soir
+week|semaine
+month|mois
+year|année
+today|aujourd'hui
+tomorrow|demain
+yesterday|hier
+now|maintenant
+later|plus tard
+early|tôt
+late|tard
+big|grand
+small|petit
+good|bon
+bad|mauvais

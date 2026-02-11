@@ -282,3 +282,102 @@ export const updateSentence = async (id: string, updatedSentence: Partial<Senten
         throw e;
     }
 };
+
+// Load default data from asset files
+const DEFAULTS_LOADED_KEY = '@vocabulary_app_defaults_loaded';
+
+export const loadDefaultVocabulary = async (): Promise<Word[]> => {
+    try {
+        const vocabularyFile = require('../../assets/data/vocabulary.txt');
+        const response = await fetch(vocabularyFile);
+        const text = await response.text();
+
+        const words: Word[] = [];
+        const lines = text.split('\n').filter(line => line.trim());
+
+        for (const line of lines) {
+            const [word, translation] = line.split('|').map(s => s.trim());
+            if (word && translation) {
+                words.push({
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    word,
+                    translation,
+                    createdAt: Date.now(),
+                    includeInQuiz: true,
+                });
+            }
+        }
+
+        return words;
+    } catch (e) {
+        console.error('Error loading default vocabulary', e);
+        return [];
+    }
+};
+
+export const loadDefaultSentences = async (): Promise<Sentence[]> => {
+    try {
+        const sentencesFile = require('../../assets/data/sentences.txt');
+        const response = await fetch(sentencesFile);
+        const text = await response.text();
+
+        const sentences: Sentence[] = [];
+        const lines = text.split('\n').filter(line => line.trim());
+
+        for (const line of lines) {
+            const [sentence, translation] = line.split('|').map(s => s.trim());
+            if (sentence && translation) {
+                sentences.push({
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    sentence,
+                    translation,
+                    createdAt: Date.now(),
+                    includeInQuiz: true,
+                });
+            }
+        }
+
+        return sentences;
+    } catch (e) {
+        console.error('Error loading default sentences', e);
+        return [];
+    }
+};
+
+export const initializeDefaultData = async (): Promise<void> => {
+    try {
+        // Check if defaults have already been loaded
+        const defaultsLoaded = await AsyncStorage.getItem(DEFAULTS_LOADED_KEY);
+        if (defaultsLoaded === 'true') {
+            return; // Already loaded, don't reload
+        }
+
+        // Check if user already has data
+        const existingWords = await getWords();
+        const existingSentences = await getSentences();
+
+        if (existingWords.length === 0 && existingSentences.length === 0) {
+            // First launch - load defaults
+            const defaultWords = await loadDefaultVocabulary();
+            const defaultSentences = await loadDefaultSentences();
+
+            if (defaultWords.length > 0) {
+                await AsyncStorage.setItem(STORAGE_KEYS.WORDS, JSON.stringify(defaultWords));
+            }
+
+            if (defaultSentences.length > 0) {
+                await AsyncStorage.setItem(STORAGE_KEYS.SENTENCES, JSON.stringify(defaultSentences));
+            }
+
+            // Mark defaults as loaded
+            await AsyncStorage.setItem(DEFAULTS_LOADED_KEY, 'true');
+
+            console.log(`Loaded ${defaultWords.length} default words and ${defaultSentences.length} default sentences`);
+        } else {
+            // User already has data, just mark as loaded to avoid checking again
+            await AsyncStorage.setItem(DEFAULTS_LOADED_KEY, 'true');
+        }
+    } catch (e) {
+        console.error('Error initializing default data', e);
+    }
+};
