@@ -1,26 +1,39 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, View, Button, ActivityIndicator } from 'react-native';
-import { getWords, getSettings } from '@/src/utils/storage';
-import { Word } from '@/src/types';
+import { StyleSheet, View, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { getWords, getSentences, getSettings } from '@/src/utils/storage';
+import { Word, Sentence, QuizDirection, ContentType } from '@/src/types';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useNavigation } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useLocalSearchParams } from 'expo-router';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Colors, Spacing, Typography, BorderRadius } from '@/src/constants/theme';
+
+type QuizItem = Word | Sentence;
 
 export default function QuizScreen() {
-    const [words, setWords] = useState<Word[]>([]);
-    const [currentWord, setCurrentWord] = useState<Word | null>(null);
+    const [items, setItems] = useState<QuizItem[]>([]);
+    const [availableItems, setAvailableItems] = useState<QuizItem[]>([]);
+    const [currentItem, setCurrentItem] = useState<QuizItem | null>(null);
     const [revealed, setRevealed] = useState(false);
     const [timer, setTimer] = useState<number | null>(null);
-    const [timeLeft, setTimeLeft] = useState(0);
     const [loading, setLoading] = useState(true);
     const [revealDelay, setRevealDelay] = useState(5000);
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    const params = useLocalSearchParams<{ direction?: string; contentType?: string }>();
+    const direction: QuizDirection = (params.direction as QuizDirection) || 'forward';
+    const contentType: ContentType = (params.contentType as ContentType) || 'vocabulary';
 
     const navigation = useNavigation();
 
     useEffect(() => {
         navigation.setOptions({ title: 'Quiz' });
         initQuiz();
-        return () => clearTimer(); // Cleanup on unmount
+        return () => clearTimer();
     }, []);
 
     const clearTimer = () => {
@@ -28,44 +41,50 @@ export default function QuizScreen() {
     };
 
     const initQuiz = async () => {
-        const data = await getWords();
         const settings = await getSettings();
         setRevealDelay(settings.revealDelay);
 
-        if (data.length === 0) {
+        const data = contentType === 'vocabulary' ? await getWords() : await getSentences();
+
+        // Filter out items excluded from quiz
+        const includedItems = data.filter(item => item.includeInQuiz !== false);
+
+        if (includedItems.length === 0) {
             setLoading(false);
             return;
         }
 
-        setWords(data);
-        pickRandomWord(data, settings.revealDelay);
+        // Reset mastered status for all items
+        const resetData = includedItems.map(item => ({ ...item, mastered: false }));
+        setItems(resetData);
+        setAvailableItems(resetData);
+        pickRandomItem(resetData, settings.revealDelay);
         setLoading(false);
     };
 
-    const pickRandomWord = (wordList: Word[], delayMs: number) => {
-        if (wordList.length === 0) return;
+    const pickRandomItem = (itemList: QuizItem[], delayMs: number) => {
+        if (itemList.length === 0) {
+            // All items mastered, reset and start over
+            const resetData = items.map(item => ({ ...item, mastered: false }));
+            setAvailableItems(resetData);
+            itemList = resetData;
+        }
 
-        let candidates = wordList;
-        if (wordList.length > 1 && currentWord) {
-            candidates = wordList.filter(w => w.id !== currentWord.id);
+        let candidates = itemList;
+        if (itemList.length > 1 && currentItem) {
+            candidates = itemList.filter(item => item.id !== currentItem.id);
         }
 
         const randomIndex = Math.floor(Math.random() * candidates.length);
         const selected = candidates[randomIndex];
 
-        setCurrentWord(selected);
+        setCurrentItem(selected);
         setRevealed(false);
         startRevealTimer(delayMs);
     };
 
     const startRevealTimer = (delayMs: number) => {
         clearTimer();
-        setTimeLeft(delayMs / 1000);
-
-        // Countdown for UI (optional, but good for UX)
-        // For simplicity, we just use setTimeout for the reveal action
-        // But to show a countdown, we'd need an interval. 
-        // Let's sticking to the "after 5 seconds... revealed" requirement.
 
         const id = setTimeout(() => {
             setRevealed(true);
@@ -75,8 +94,18 @@ export default function QuizScreen() {
         setTimer(id);
     };
 
-    const handleNext = () => {
-        pickRandomWord(words, revealDelay);
+    const handleThumbsUp = () => {
+        // Mark as mastered and remove from available items
+        const updatedAvailable = availableItems.filter(item => item.id !== currentItem?.id);
+        setAvailableItems(updatedAvailable);
+        pickRandomItem(updatedAvailable, revealDelay);
+        setCurrentIndex(prev => prev + 1);
+    };
+
+    const handleThumbsDown = () => {
+        // Keep in rotation, just move to next
+        pickRandomItem(availableItems, revealDelay);
+        setCurrentIndex(prev => prev + 1);
     };
 
     const handleReveal = () => {
@@ -84,108 +113,257 @@ export default function QuizScreen() {
         setRevealed(true);
     };
 
+    const getSourceText = (item: QuizItem): string => {
+        if ('word' in item) {
+            return direction === 'forward' ? item.word : item.translation;
+        } else {
+            return direction === 'forward' ? item.sentence : item.translation;
+        }
+    };
+
+    const getTargetText = (item: QuizItem): string => {
+        if ('word' in item) {
+            return direction === 'forward' ? item.translation : item.word;
+        } else {
+            return direction === 'forward' ? item.translation : item.sentence;
+        }
+    };
+
+    const getSourceLabel = (): string => {
+        return direction === 'forward' ? 'Vietnamese' : 'English';
+    };
+
+    const getTargetLabel = (): string => {
+        return direction === 'forward' ? 'English' : 'Vietnamese';
+    };
+
     if (loading) {
         return (
             <View style={styles.centered}>
-                <ActivityIndicator size="large" />
+                <ActivityIndicator size="large" color={Colors.primary[500]} />
             </View>
         );
     }
 
-    if (words.length === 0) {
+    if (items.length === 0) {
         return (
-            <View style={styles.centered}>
-                <ThemedText>No words to practice!</ThemedText>
-            </View>
+            <SafeAreaView style={styles.container} edges={['top']}>
+                <LinearGradient
+                    colors={[Colors.primary[500], Colors.secondary[500]]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.header}
+                >
+                    <ThemedText type="title" style={styles.headerTitle}>
+                        Quiz
+                    </ThemedText>
+                </LinearGradient>
+                <View style={styles.centered}>
+                    <ThemedText style={styles.emptyTitle}>No items to practice!</ThemedText>
+                    <ThemedText style={styles.emptySubtitle}>
+                        Add some {contentType === 'vocabulary' ? 'words' : 'sentences'} first
+                    </ThemedText>
+                </View>
+            </SafeAreaView>
         );
     }
 
-    if (!currentWord) return null;
+    if (!currentItem) return null;
 
     return (
-        <ThemedView style={styles.container}>
-            <View style={styles.card}>
-                <ThemedText style={styles.label}>Vietnamese</ThemedText>
-                <ThemedText type="title" style={styles.wordText}>{currentWord.word}</ThemedText>
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <LinearGradient
+                colors={[Colors.primary[500], Colors.secondary[500]]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.header}
+            >
+                <ThemedText type="title" style={styles.headerTitle}>
+                    Quiz
+                </ThemedText>
+                <ThemedText style={styles.headerSubtitle}>
+                    {contentType === 'vocabulary' ? 'Vocabulary' : 'Sentences'} • {getSourceLabel()} → {getTargetLabel()}
+                </ThemedText>
+            </LinearGradient>
 
-                <View style={styles.divider} />
-
-                <ThemedText style={styles.label}>Translation</ThemedText>
-                {revealed ? (
-                    <ThemedText type="title" style={styles.translationText}>{currentWord.translation}</ThemedText>
-                ) : (
-                    <View style={styles.hiddenContainer}>
-                        <ThemedText style={styles.hiddenText}>...</ThemedText>
-                        <Button title="Reveal Now" onPress={handleReveal} />
+            <ThemedView style={styles.content}>
+                <Card elevation="lg" style={styles.quizCard}>
+                    <View style={styles.badge}>
+                        <ThemedText style={styles.badgeText}>#{currentIndex + 1}</ThemedText>
                     </View>
-                )}
-            </View>
 
-            <View style={styles.footer}>
-                {revealed && <Button title="Next Word" onPress={handleNext} />}
-            </View>
-        </ThemedView>
+                    <ThemedText style={styles.label}>{getSourceLabel()}</ThemedText>
+                    <ThemedText type="title" style={styles.sourceText} numberOfLines={0}>
+                        {getSourceText(currentItem)}
+                    </ThemedText>
+
+                    <View style={styles.divider} />
+
+                    <ThemedText style={styles.label}>{getTargetLabel()}</ThemedText>
+                    {revealed ? (
+                        <ThemedText type="title" style={styles.translationText} numberOfLines={0}>
+                            {getTargetText(currentItem)}
+                        </ThemedText>
+                    ) : (
+                        <View style={styles.hiddenContainer}>
+                            <ThemedText style={styles.hiddenText}>...</ThemedText>
+                            <Button title="Reveal Now" onPress={handleReveal} variant="outline" />
+                        </View>
+                    )}
+                </Card>
+
+                <View style={styles.footer}>
+                    {revealed && (
+                        <View style={styles.ratingButtons}>
+                            <TouchableOpacity
+                                style={[styles.ratingButton, styles.thumbsDownButton]}
+                                onPress={handleThumbsDown}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="thumbs-down" size={32} color={Colors.white} />
+                                <ThemedText style={styles.ratingButtonText}>Review Again</ThemedText>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.ratingButton, styles.thumbsUpButton]}
+                                onPress={handleThumbsUp}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="thumbs-up" size={32} color={Colors.white} />
+                                <ThemedText style={styles.ratingButtonText}>Mastered!</ThemedText>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </View>
+            </ThemedView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 20,
+        backgroundColor: Colors.background.light,
+    },
+    header: {
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.base,
+        paddingBottom: Spacing.xl,
+    },
+    headerTitle: {
+        fontSize: Typography.fontSize['3xl'],
+        fontWeight: Typography.fontWeight.bold,
+        color: Colors.white,
+        marginBottom: Spacing.xs,
+    },
+    headerSubtitle: {
+        fontSize: Typography.fontSize.sm,
+        color: Colors.white,
+        opacity: 0.9,
+    },
+    content: {
+        flex: 1,
+        padding: Spacing.lg,
         justifyContent: 'center',
-        alignItems: 'center',
     },
     centered: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        padding: Spacing['4xl'],
     },
-    card: {
-        width: '100%',
-        padding: 30,
-        backgroundColor: '#fff',
-        borderRadius: 16,
+    quizCard: {
+        padding: Spacing.xl,
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-        borderWidth: 1,
-        borderColor: '#eee',
+        position: 'relative',
+    },
+    badge: {
+        position: 'absolute',
+        top: Spacing.base,
+        right: Spacing.base,
+        backgroundColor: Colors.primary[100],
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        borderRadius: BorderRadius.full,
+    },
+    badgeText: {
+        fontSize: Typography.fontSize.xs,
+        fontWeight: Typography.fontWeight.bold,
+        color: Colors.primary[600],
     },
     label: {
-        fontSize: 14,
-        color: '#888',
-        marginBottom: 8,
-        marginTop: 20,
+        fontSize: Typography.fontSize.sm,
+        color: Colors.text.light.secondary,
+        marginBottom: Spacing.sm,
+        marginTop: Spacing.lg,
+        alignSelf: 'flex-start',
     },
-    wordText: {
-        fontSize: 32,
-        fontWeight: 'bold',
+    sourceText: {
+        fontSize: Typography.fontSize['2xl'],
+        fontWeight: Typography.fontWeight.bold,
         textAlign: 'center',
+        color: Colors.text.light.primary,
+        flexShrink: 1,
     },
     translationText: {
-        fontSize: 28,
-        color: '#2e78b7',
+        fontSize: Typography.fontSize.xl,
+        color: Colors.primary[600],
         textAlign: 'center',
+        flexShrink: 1,
     },
     divider: {
         height: 1,
         width: '80%',
-        backgroundColor: '#eee',
-        marginVertical: 20,
+        backgroundColor: Colors.gray[200],
+        marginVertical: Spacing.xl,
     },
     hiddenContainer: {
         alignItems: 'center',
-        gap: 10,
+        gap: Spacing.base,
+        width: '100%',
     },
     hiddenText: {
-        fontSize: 24,
-        color: '#ccc',
+        fontSize: Typography.fontSize['3xl'],
+        color: Colors.gray[300],
     },
     footer: {
-        marginTop: 40,
-        height: 50,
-    }
+        marginTop: Spacing.xl,
+    },
+    ratingButtons: {
+        flexDirection: 'row',
+        gap: Spacing.md,
+        width: '100%',
+    },
+    ratingButton: {
+        flex: 1,
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: Spacing.lg,
+        paddingHorizontal: Spacing.md,
+        borderRadius: BorderRadius.md,
+        gap: Spacing.sm,
+    },
+    thumbsUpButton: {
+        backgroundColor: Colors.success,
+    },
+    thumbsDownButton: {
+        backgroundColor: Colors.error,
+    },
+    ratingButtonText: {
+        fontSize: Typography.fontSize.sm,
+        fontWeight: Typography.fontWeight.semibold,
+        color: Colors.white,
+    },
+    emptyTitle: {
+        fontSize: Typography.fontSize.xl,
+        fontWeight: Typography.fontWeight.semibold,
+        color: Colors.text.light.primary,
+        marginBottom: Spacing.sm,
+        textAlign: 'center',
+    },
+    emptySubtitle: {
+        fontSize: Typography.fontSize.base,
+        color: Colors.text.light.secondary,
+        textAlign: 'center',
+    },
 });

@@ -1,35 +1,46 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, View, Alert, TouchableWithoutFeedback, Keyboard, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import {
+    StyleSheet,
+    TextInput,
+    View,
+    Alert,
+    TouchableWithoutFeedback,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { saveWord } from '@/src/utils/storage';
+import { saveSentence } from '@/src/utils/storage';
 import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Colors, Spacing, Typography, BorderRadius } from '@/src/constants/theme';
 import * as Crypto from 'expo-crypto';
 
-export default function AddWordScreen() {
-    const [word, setWord] = useState('');
+export default function AddSentenceScreen() {
+    const [sentence, setSentence] = useState('');
     const [translation, setTranslation] = useState('');
 
     const handleSave = async () => {
-        if (!word.trim() || !translation.trim()) {
-            Alert.alert('Error', 'Please enter both word and translation');
+        if (!sentence.trim() || !translation.trim()) {
+            Alert.alert('Error', 'Please enter both sentence and translation');
             return;
         }
 
-        const newWord = {
+        const newSentence = {
             id: Crypto.randomUUID(),
-            word: word.trim(),
+            sentence: sentence.trim(),
             translation: translation.trim(),
             createdAt: Date.now(),
         };
 
-        await saveWord(newWord);
-        setWord('');
+        await saveSentence(newSentence);
+        setSentence('');
         setTranslation('');
-        Alert.alert('Success', 'Word added!');
+        Alert.alert('Success', 'Sentence added!');
     };
 
     return (
@@ -41,10 +52,10 @@ export default function AddWordScreen() {
                 style={styles.header}
             >
                 <ThemedText type="title" style={styles.headerTitle}>
-                    Add Word
+                    Add Sentence
                 </ThemedText>
                 <ThemedText style={styles.headerSubtitle}>
-                    Build your vocabulary
+                    Build your sentence collection
                 </ThemedText>
             </LinearGradient>
 
@@ -55,13 +66,16 @@ export default function AddWordScreen() {
                 >
                     <ScrollView contentContainerStyle={styles.scrollContent}>
                         <Card elevation="md" style={styles.formCard}>
-                            <ThemedText style={styles.label}>Vietnamese Word</ThemedText>
+                            <ThemedText style={styles.label}>Vietnamese Sentence</ThemedText>
                             <TextInput
                                 style={styles.input}
-                                placeholder="Type word here..."
+                                placeholder="Type sentence here..."
                                 placeholderTextColor={Colors.gray[400]}
-                                value={word}
-                                onChangeText={setWord}
+                                value={sentence}
+                                onChangeText={setSentence}
+                                multiline
+                                numberOfLines={4}
+                                textAlignVertical="top"
                             />
 
                             <ThemedText style={styles.label}>English Translation</ThemedText>
@@ -71,11 +85,14 @@ export default function AddWordScreen() {
                                 placeholderTextColor={Colors.gray[400]}
                                 value={translation}
                                 onChangeText={setTranslation}
+                                multiline
+                                numberOfLines={4}
+                                textAlignVertical="top"
                             />
                         </Card>
 
                         <View style={styles.buttonContainer}>
-                            <Button title="Save Word" onPress={handleSave} size="large" fullWidth />
+                            <Button title="Save Sentence" onPress={handleSave} size="large" fullWidth />
                         </View>
                     </ScrollView>
                 </KeyboardAvoidingView>
@@ -122,11 +139,12 @@ const styles = StyleSheet.create({
         color: Colors.text.light.primary,
     },
     input: {
-        height: 50,
+        minHeight: 100,
         borderWidth: 1,
         borderColor: Colors.gray[300],
         borderRadius: BorderRadius.md,
         paddingHorizontal: Spacing.base,
+        paddingVertical: Spacing.md,
         fontSize: Typography.fontSize.base,
         backgroundColor: Colors.white,
         color: Colors.text.light.primary,
